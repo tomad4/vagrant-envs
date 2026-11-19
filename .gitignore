@@ -43,3 +43,8 @@ Thumbs.db
 *~
 *-backup
 *.bak
+
+# Grafana plugin lab build and transfer artifacts
+/grafana-k3s/.lab/
+/grafana-k3s/plugin/dist/
+/grafana-k3s/plugin/node_modules/

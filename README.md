@@ -4,6 +4,7 @@
 | --- | --- | --- |
 | [Neo4j](neo4j/README.md) | Ubuntu 24.04, Docker, and Neo4j Community 5.26 with a sample graph | 2 vCPUs, 4 GB RAM |
 | [CKAD](ckad/README.md) | Ubuntu 24.04 and Kubernetes 1.36.1 with kubeadm and Cilium | Two VMs with 2 vCPUs and 4 GB RAM each |
+| [Grafana plugin lab](grafana-k3s/README.md) | Ubuntu 24.04, single-node K3s, Grafana OSS, and a Hello World plugin | 2 vCPUs, 4 GB RAM |
 
 Install Vagrant and a version of VirtualBox that supports your host architecture. The labs use Bento Ubuntu 24.04 box version `202510.26.0`. Internet access is required to download the box and packages. The configurations support ARM64 guests on Apple Silicon and AMD64 guests on x86-64 hosts.
 

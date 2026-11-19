@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: plugin-lab
+    type: file
+    updateIntervalSeconds: 10
+    options:
+      path: /opt/grafana-dashboards

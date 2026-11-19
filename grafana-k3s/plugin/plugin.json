@@ -1,0 +1,17 @@
+{
+  "$schema": "https://grafana.com/schemas/plugin/v0.1.0.json",
+  "type": "panel",
+  "name": "Hello World",
+  "id": "tomad4-hello-panel",
+  "info": {
+    "description": "A minimal panel for the Grafana plugin deployment lab.",
+    "author": { "name": "tomad4" },
+    "logos": { "small": "logo.svg", "large": "logo.svg" },
+    "version": "0.1.0",
+    "updated": "2026-11-19"
+  },
+  "dependencies": {
+    "grafanaDependency": ">=13.3.1",
+    "plugins": []
+  }
+}
