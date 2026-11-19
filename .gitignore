@@ -1,4 +1,4 @@
-# Vagrant i VirtualBox
+# Vagrant and VirtualBox
 .vagrant/
 .vagrant.d/
 *.box
@@ -12,7 +12,7 @@
 *.sav
 Vagrantfile.local
 
-# Stan i dane lokalne
+# Local state and data
 /ckad/join-command.sh
 /ckad/join-command.sh.tmp
 /neo4j/imports/
@@ -20,7 +20,7 @@ machines/
 *.log
 *.dump
 
-# Sekrety i konfiguracje dostępu
+# Secrets and credentials
 .env
 .env.*
 !.env.example
@@ -34,7 +34,7 @@ admin.conf
 id_rsa
 id_ed25519
 
-# System i edytory
+# Operating system and editors
 .DS_Store
 Thumbs.db
 .vscode/
