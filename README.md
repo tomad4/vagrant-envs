@@ -7,6 +7,16 @@
 
 Na każdym hoście zainstaluj Vagrant (konfiguracje sprawdzono składniowo z 2.4.9) i VirtualBox w wersji obsługującej architekturę hosta. Projekty używają obrazu Bento Ubuntu 24.04 w wersji `202510.26.0`. Do pobrania obrazu i pakietów potrzebny jest internet. Konfiguracje przewidują gości ARM64 na Apple Silicon i AMD64 na komputerach x86-64.
 
+## Sprawdzenie wersji na macOS i Linuxie
+
+W katalogu repozytorium uruchom:
+
+```sh
+./check-versions.sh
+```
+
+Wspólny profil to Vagrant `2.4.9` i VirtualBox `7.2.20`. Skrypt dopuszcza nowsze poprawki w ramach tej samej serii `major.minor`. Brak programu, starsza poprawka lub inna seria kończą się kodem `1`. Sprawdzenie dotyczy wersji z `PATH`. Zmianę profilu dla obu systemów zapisuj w `check-versions.sh`.
+
 Wejdź do katalogu wybranego projektu i uruchom:
 
 ```sh
