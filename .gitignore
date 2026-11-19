@@ -1,0 +1,45 @@
+# Vagrant i VirtualBox
+.vagrant/
+.vagrant.d/
+*.box
+*.vbox
+*.vbox-prev
+*.vdi
+*.vmdk
+*.vhd
+*.vhdx
+*.ova
+*.sav
+Vagrantfile.local
+
+# Stan i dane lokalne
+/ckad/join-command.sh
+/ckad/join-command.sh.tmp
+/neo4j/imports/
+machines/
+*.log
+*.dump
+
+# Sekrety i konfiguracje dostępu
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+*.kubeconfig
+kubeconfig
+kubeconfig.yaml
+admin.conf
+id_rsa
+id_ed25519
+
+# System i edytory
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
+*-backup
+*.bak

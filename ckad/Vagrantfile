@@ -1,0 +1,135 @@
+SYSTEM_PROVISIONER = <<~'SHELL'
+  set -euo pipefail
+  export DEBIAN_FRONTEND=noninteractive
+  KUBERNETES_PACKAGE_VERSION=1.36.1-1.1
+
+  hostnamectl set-hostname "${HOSTNAME}"
+
+  # Disable active swap and prevent it from returning after reboot.
+  swapoff -a
+  sed -i '/[[:space:]]swap[[:space:]]/d' /etc/fstab
+
+  if command -v ufw >/dev/null 2>&1; then
+    ufw --force disable || true
+    systemctl disable --now ufw 2>/dev/null || true
+  fi
+
+  # Use printf to avoid nested heredoc parsing in Vagrant's shell script.
+  printf '%s\n' overlay br_netfilter > /etc/modules-load.d/k8s.conf
+  modprobe overlay
+  modprobe br_netfilter
+
+  printf '%s\n' \
+    'net.bridge.bridge-nf-call-iptables = 1' \
+    'net.bridge.bridge-nf-call-ip6tables = 1' \
+    'net.ipv4.ip_forward = 1' \
+    > /etc/sysctl.d/99-kubernetes.conf
+  sysctl --system
+
+  apt-get update
+  apt-get install -y ca-certificates curl gpg containerd bash-completion vim
+
+  mkdir -p /etc/containerd
+  containerd config default > /etc/containerd/config.toml
+  sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+  systemctl enable --now containerd
+  systemctl restart containerd
+
+  install -d -m 0755 /etc/apt/keyrings
+  curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.36/deb/Release.key \
+    | gpg --dearmor --yes -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+  printf '%s\n' \
+    'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.36/deb/ /' \
+    > /etc/apt/sources.list.d/kubernetes.list
+  apt-get update
+  apt-get install -y \
+    kubelet=${KUBERNETES_PACKAGE_VERSION} \
+    kubeadm=${KUBERNETES_PACKAGE_VERSION} \
+    kubectl=${KUBERNETES_PACKAGE_VERSION}
+  apt-mark hold kubelet kubeadm kubectl
+  printf 'KUBELET_EXTRA_ARGS=--node-ip=%s\n' "${NODE_IP}" > /etc/default/kubelet
+  systemctl enable kubelet
+SHELL
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/ubuntu-24.04"
+  config.vm.box_version = "202510.26.0"
+  config.ssh.insert_key = true
+
+  config.vm.define "k8s-cp" do |cp|
+    cp.vm.hostname = "cp"
+    cp.vm.network "private_network", ip: "192.168.56.10"
+    cp.vm.provider "virtualbox" do |vb|
+      vb.name = "ckad-k8s-cp"
+      vb.cpus = 2
+      vb.memory = 4096
+    end
+
+    cp.vm.provision "shell", inline: "export HOSTNAME=cp\nexport NODE_IP=192.168.56.10\n" + SYSTEM_PROVISIONER + <<~'SHELL'
+      # Verify the box supplies the required minimum root disk capacity.
+      root_size_kb=$(df -Pk / | awk 'NR == 2 { print $2 }')
+      if [ "$root_size_kb" -lt 20971520 ]; then
+        echo "Control-plane root disk must be at least 20 GiB" >&2
+        exit 1
+      fi
+
+      # Remove stale coordination data before a reprovisioning run.
+      rm -f /vagrant/join-command.sh
+
+      kubeadm init \
+        --kubernetes-version=v1.36.1 \
+        --apiserver-advertise-address=192.168.56.10 \
+        --pod-network-cidr=10.244.0.0/16
+
+      install -d -o vagrant -g vagrant /home/vagrant/.kube
+      install -o vagrant -g vagrant -m 0600 \
+        /etc/kubernetes/admin.conf /home/vagrant/.kube/config
+      printf '\n%s\n' 'source <(kubectl completion bash)' >> /home/vagrant/.bashrc
+
+      # Publish only a complete join command; worker waits for this atomic rename.
+      kubeadm token create --print-join-command > /vagrant/join-command.sh.tmp
+      chmod 0755 /vagrant/join-command.sh.tmp
+      mv /vagrant/join-command.sh.tmp /vagrant/join-command.sh
+
+      CILIUM_CLI_VERSION=$(curl -fsSL https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
+      case "$(dpkg --print-architecture)" in
+        arm64|amd64) CILIUM_ARCH=$(dpkg --print-architecture) ;;
+        *) echo "Unsupported guest architecture" >&2; exit 1 ;;
+      esac
+      curl -fsSL \
+        "https://github.com/cilium/cilium-cli/releases/download/${CILIUM_CLI_VERSION}/cilium-linux-${CILIUM_ARCH}.tar.gz" \
+        -o /tmp/cilium.tar.gz
+      tar xzf /tmp/cilium.tar.gz -C /usr/local/bin cilium
+      rm -f /tmp/cilium.tar.gz
+
+      export KUBECONFIG=/etc/kubernetes/admin.conf
+      cilium install --set ipam.operator.clusterPoolIPv4PodCIDRList=10.244.0.0/16
+      cilium status --wait
+      kubectl taint nodes cp node-role.kubernetes.io/control-plane:NoSchedule-
+    SHELL
+  end
+
+  config.vm.define "k8s-worker" do |worker|
+    worker.vm.hostname = "worker"
+    worker.vm.network "private_network", ip: "192.168.56.11"
+    worker.vm.provider "virtualbox" do |vb|
+      vb.name = "ckad-k8s-worker"
+      vb.cpus = 2
+      vb.memory = 4096
+    end
+
+    worker.vm.provision "shell", inline: "export HOSTNAME=worker\nexport NODE_IP=192.168.56.11\n" + SYSTEM_PROVISIONER + <<~'SHELL'
+      echo "Waiting for the control plane join command"
+      until [ -s /vagrant/join-command.sh ]; do
+        sleep 2
+      done
+      # Reject empty or malformed data before invoking kubeadm.
+      if ! grep -Eq '^kubeadm join [^ ]+ --token [^ ]+ --discovery-token-ca-cert-hash sha256:[[:xdigit:]]+[[:space:]]*$' \
+        /vagrant/join-command.sh; then
+        echo "Control-plane join command is missing or malformed:" >&2
+        exit 1
+      fi
+      bash /vagrant/join-command.sh
+    SHELL
+  end
+end
