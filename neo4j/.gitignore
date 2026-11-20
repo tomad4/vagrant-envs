@@ -1,0 +1,14 @@
+
+# Vagrant machine state, generated keys, and downloaded boxes
+.vagrant/
+*.box
+Vagrantfile.local
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+machines/
